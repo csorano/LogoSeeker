@@ -4,28 +4,28 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.provider.Settings;
 import android.support.v4.content.FileProvider;
-import android.support.v4.util.LogWriter;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.Button;
-import android.widget.Gallery;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-import java.io.Console;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
-import java.util.logging.Logger;
+
+import org.bytedeco.javacpp.opencv_features2d;
+import org.bytedeco.javacpp.opencv_core.*;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -64,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 photoFile = createImageFile();
             } catch (IOException ex) {
+                Log.i("createImageFile",ex.getMessage());
             }
             // Continue only if the File was successfully created
             if (photoFile != null) {
@@ -110,7 +111,6 @@ public class MainActivity extends AppCompatActivity {
             Bitmap imageBitmap = BitmapFactory.decodeFile(mCurrentPhotoPath,new BitmapFactory.Options());
             img.setImageBitmap(imageBitmap);
 
-
             Toast.makeText(MainActivity.this, "Photo Captured", Toast.LENGTH_SHORT).show();
 
            galleryAddPic();
@@ -154,5 +154,52 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(i, RESULT_LOAD_IMAGE);
     }
 
+
+    // Reconnaissance javaCV
+    private void startRecognition()
+    {
+        // Getting image back from Image View
+        ImageView img = (ImageView) findViewById(R.id.v_picture);
+        Bitmap image = ((BitmapDrawable)img.getDrawable()).getBitmap();
+
+        // Getting paths to reference Images
+        ArrayList<Uri> imagesPaths = new ArrayList<Uri>();
+        imagesPaths.add(Uri.parse("drawable://" + R.drawable.image1));
+        imagesPaths.add(Uri.parse("drawable://" + R.drawable.image2));
+        imagesPaths.add(Uri.parse("drawable://" + R.drawable.image3));
+
+
+    }
+
+    static DMatchVector selectBest(DMatchVector matches, int numberToSelect) {
+        DMatch[] sorted = toArray(matches);
+        Arrays.sort(sorted, (a, b) -> {
+            return a.lessThan(b) ? -1 : 1;
+        });
+        DMatch[] best = Arrays.copyOf(sorted, numberToSelect);
+        return new DMatchVector(best);
+    }
+
+    static long getDistanceMoyenne(DMatchVector bestMatches)
+    {
+        int distanceMoyenne = 0;
+        for(int y = 0; y < 25;++y)
+        {
+            distanceMoyenne += bestMatches.get(y).distance();
+        }
+        distanceMoyenne = distanceMoyenne / 25;
+        return distanceMoyenne;
+    }
+
+    static DMatch[] toArray(DMatchVector matches) {
+        assert matches.size() <= Integer.MAX_VALUE;
+        int n = (int) matches.size();
+        // Convert keyPoints to Scala sequence
+        DMatch[] result = new DMatch[n];
+        for (int i = 0; i < n; i++) {
+            result[i] = new DMatch(matches.get(i));
+        }
+        return result;
+    }
 }
 
