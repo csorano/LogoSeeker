@@ -51,10 +51,10 @@
 
     <ImageView
         android:id="@+id/v_picture"
-        android:layout_width="281dp"
-        android:layout_height="353dp"
-        android:layout_marginEnd="32dp"
-        android:layout_marginStart="32dp"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginEnd="51dp"
+        android:layout_marginStart="51dp"
         android:adjustViewBounds="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
@@ -65,6 +65,21 @@
         tools:layout_constraintLeft_creator="1"
         tools:layout_constraintRight_creator="1"
         tools:layout_constraintTop_creator="1"
-        app:layout_constraintHorizontal_bias="0.504" />
+        app:layout_constraintHorizontal_bias="0.504"
+        android:layout_marginTop="79dp"
+        android:layout_marginBottom="79dp" />
 
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="668dp"
+        android:layout_marginLeft="-219dp"
+        android:layout_marginStart="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toRightOf="@+id/b_analysis"
+        tools:layout_constraintBottom_creator="1"
+        tools:layout_constraintLeft_creator="1"
+        tools:visibility="gone" />
 </android.support.constraint.ConstraintLayout>
