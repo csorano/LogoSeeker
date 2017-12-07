@@ -32,6 +32,8 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Hashtable;
+import java.util.LinkedList;
 
 import org.bytedeco.javacpp.FlyCapture2;
 import org.bytedeco.javacpp.Loader;
@@ -49,12 +51,15 @@ public class MainActivity extends AppCompatActivity {
     final int REQUEST_TAKE_PHOTO = 1;
     final int RESULT_LOAD_IMAGE=2;
     String mCurrentPhotoPath;
+    public ArrayList<ObjectForImage> baseDonnee;
 
     //Action du bouton capture
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        baseDonnee = imreadImage();
 
         Button buttonCap = (Button)findViewById(R.id.b_capture);
         buttonCap.setOnClickListener(new View.OnClickListener() {
@@ -196,10 +201,178 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(i, RESULT_LOAD_IMAGE);
     }
 
+
+
+/*--------------------------------------------------------------------------------------------*/
+
+
+    public ArrayList<ObjectForImage> imreadImage(){
+        ObjectForImage coca;
+        ObjectForImage pepsi;
+        ObjectForImage sprite;
+        ArrayList baseD = new ArrayList();
+
+        //Image Groupe 1
+        //String cocaPath = list[0].getAbsolutePath();
+        File fileCoca1 = uriToCache(MainActivity.this,getUri("coca1"),"coca1");
+        File fileCoca2 = uriToCache(MainActivity.this,getUri("coca2"),"coca2");
+        File fileCoca3 = uriToCache(MainActivity.this,getUri("coca3"),"coca3");
+        Mat refCoca1 = imread(fileCoca1.getAbsolutePath());
+        Mat refCoca2 = imread(fileCoca2.getAbsolutePath());
+        Mat refCoca3 = imread(fileCoca3.getAbsolutePath());
+        Mat[] referencesCoca ={refCoca1 ,refCoca2,refCoca3};
+
+        //Image Groupe 2
+        //String pepsiPath = list[1].getAbsolutePath();
+        File filePepsi1 = uriToCache(MainActivity.this,getUri("pepsi1"),"pepsi1");
+        File filePepsi2 = uriToCache(MainActivity.this,getUri("pepsi2"),"pepsi2");
+        File filePepsi3 = uriToCache(MainActivity.this,getUri("pepsi3"),"pepsi3");
+        Mat refPepsi1 = imread(filePepsi1.getAbsolutePath());
+        Mat refPepsi2 = imread(filePepsi2.getAbsolutePath());
+        Mat refPepsi3 = imread(filePepsi3.getAbsolutePath());
+        Mat[] referencesPepsi ={refPepsi1 ,refPepsi2,refPepsi3};
+
+        //Image Groupe 3
+        //String spritePath = list[2].getAbsolutePath();
+        File fileSprite1 = uriToCache(MainActivity.this,getUri("sprite1"),"sprite1");
+        File fileSprite2 = uriToCache(MainActivity.this,getUri("sprite2"),"sprite2");
+        File fileSprite3 = uriToCache(MainActivity.this,getUri("sprite3"),"sprite3");
+        Mat refSprite1 = imread(fileSprite1.getAbsolutePath());
+        Mat refSprite2 = imread(fileSprite2.getAbsolutePath());
+        Mat refSprite3 = imread(fileSprite3.getAbsolutePath());
+        Mat[] referencesSprite ={refSprite1 ,refSprite2,refSprite3};
+
+        //Création des Descriptors
+        Mat[] descriptorsCoca = {null,null,null};
+        Mat[] descriptorsPepsi = {null,null,null};
+        Mat[] descriptorsSprite = {null,null,null};
+
+        //Création des pointeurs
+        KeyPointVector[] keyPointsCoca = {null,null,null};
+        KeyPointVector[] keyPointsPepsi = {null,null,null};
+        KeyPointVector[] keyPointsSprite = {null,null,null};
+
+        //Paramètre du SIFT.create
+        int	nFeatures	=	0;
+        int	nOctaveLayers	=	3;
+        double	contrastThreshold	=	0.03;
+        int	edgeThreshold	=	10;
+        double	sigma	=	1.6;
+        Loader.load(opencv_calib3d.class);
+        Loader.load(opencv_shape.class)	;
+        opencv_xfeatures2d.SIFT sift;
+        sift= opencv_xfeatures2d.SIFT.create(nFeatures,	nOctaveLayers,	contrastThreshold,	edgeThreshold,	sigma);
+
+        //Detection des images de la catégorie Coca
+        for (int i=0;i<referencesCoca.length;i++){
+        descriptorsCoca[i]=new Mat();
+        keyPointsCoca[i]=new KeyPointVector();
+        sift.detect(referencesCoca[i],	keyPointsCoca[i]);
+        sift.compute(referencesCoca[i],keyPointsCoca[i],descriptorsCoca[i]);
+    }
+
+        //Detection des images de la catégorie Pepsi
+        for (int i=0;i<referencesPepsi.length;i++){
+            descriptorsPepsi[i]=new Mat();
+            keyPointsPepsi[i]=new KeyPointVector();
+            sift.detect(referencesPepsi[i],	keyPointsPepsi[i]);
+            sift.compute(referencesPepsi[i],keyPointsPepsi[i],descriptorsPepsi[i]);
+        }
+
+        //Detection des images de la catégorie Sprite
+        for (int i=0;i<referencesSprite.length;i++){
+            descriptorsSprite[i]=new Mat();
+            keyPointsSprite[i]=new KeyPointVector();
+            sift.detect(referencesSprite[i],keyPointsSprite[i]);
+            sift.compute(referencesSprite[i],keyPointsSprite[i],descriptorsSprite[i]);
+        }
+
+        coca = new ObjectForImage("coca",referencesCoca,descriptorsCoca,keyPointsCoca);
+        pepsi = new ObjectForImage("pepsi",referencesPepsi,descriptorsPepsi,keyPointsPepsi);
+        sprite = new ObjectForImage("sprite",referencesSprite,descriptorsSprite,keyPointsSprite);
+        baseD.add(coca);
+        baseD.add(pepsi);
+        baseD.add(sprite);
+
+        return baseD;
+    }
+
+    private Uri getUri(String drawableName)
+    {
+        Uri uri = Uri.parse("android.resource://imt.logoseeker/drawable/" + drawableName);
+        return uri;
+    }
+
+    private File uriToCache(Context context, Uri imgPath, String fileName) {
+        InputStream is;
+        FileOutputStream fos;
+        int size;
+        byte[] buffer;
+        String filePath = context.getCacheDir() + "/" + fileName;
+        File file = new File(filePath);
+
+        try {
+            is = context.getContentResolver().openInputStream(imgPath);
+            if (is == null) {
+                return null;
+            }
+
+            size = is.available();
+            buffer = new byte[size];
+
+            if (is.read(buffer) <= 0) {
+                return null;
+            }
+
+            is.close();
+
+            fos = new FileOutputStream(filePath);
+            fos.write(buffer);
+            fos.close();
+
+            return file;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
 /*
 ----------------------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------------------
  */
+    public class ObjectForImage{
+    String name;
+    Mat[] ref;
+    Mat[] descriptors;
+    KeyPointVector[] keyPoints;
+
+
+        ObjectForImage(String startName,Mat[] startRef,Mat[] startDescriptors,KeyPointVector[] startKeyPoints){
+            this.name=startName;
+            this.ref=startRef;
+            this.descriptors=startDescriptors;
+            this.keyPoints=startKeyPoints;
+        }
+        ObjectForImage(){
+            this.name=null;
+            this.ref=null;
+            this.descriptors=null;
+            this.keyPoints=null;
+        }
+        public String getName(){
+            return name;
+        }
+        public Mat[] getRef(){
+            return ref;
+        }
+        public Mat[] getDescriptors(){
+            return descriptors;
+        }
+        public KeyPointVector[] getKeyPoints(){
+            return keyPoints;
+        }
+    }
 
     private class AnalysisTask extends AsyncTask<String, Void, String> {
         protected String doInBackground(String[] paths) {
@@ -226,54 +399,23 @@ public class MainActivity extends AppCompatActivity {
         // Reconnaissance javaCV
         private String startRecognition(String photoPath)
         {
+            ObjectForImage coca = new ObjectForImage();
+            ObjectForImage pepsi = new ObjectForImage();
+            ObjectForImage sprite = new ObjectForImage();
+
+            for (int i = 0;i<baseDonnee.size();i++){
+                if(baseDonnee.get(i).getName()=="coca")
+                    coca=baseDonnee.get(i);
+                else if (baseDonnee.get(i).getName()=="pepsi")
+                    pepsi=baseDonnee.get(i);
+                else if (baseDonnee.get(i).getName()=="sprite")
+                    sprite=baseDonnee.get(i);
+            }
+
             Mat	imagePri =	imread(photoPath);
 
-            //File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-            //String path = storageDir.getAbsolutePath();
-            //File[] list = storageDir.listFiles();
-
-            //Image Groupe 1
-            //String cocaPath = list[0].getAbsolutePath();
-            File fileCoca1 = uriToCache(MainActivity.this,getUri("coca1"),"coca1");
-            File fileCoca2 = uriToCache(MainActivity.this,getUri("coca2"),"coca2");
-            File fileCoca3 = uriToCache(MainActivity.this,getUri("coca3"),"coca3");
-            Mat refCoca1 = imread(fileCoca1.getAbsolutePath());
-            Mat refCoca2 = imread(fileCoca2.getAbsolutePath());
-            Mat refCoca3 = imread(fileCoca3.getAbsolutePath());
-            Mat[] referencesCoca ={refCoca1 ,refCoca2,refCoca3};
-
-            //Image Groupe 2
-            //String pepsiPath = list[1].getAbsolutePath();
-            File filePepsi1 = uriToCache(MainActivity.this,getUri("pepsi1"),"pepsi1");
-            File filePepsi2 = uriToCache(MainActivity.this,getUri("pepsi2"),"pepsi2");
-            File filePepsi3 = uriToCache(MainActivity.this,getUri("pepsi3"),"pepsi3");
-            Mat refPepsi1 = imread(filePepsi1.getAbsolutePath());
-            Mat refPepsi2 = imread(filePepsi2.getAbsolutePath());
-            Mat refPepsi3 = imread(filePepsi3.getAbsolutePath());
-            Mat[] referencesPepsi ={refPepsi1 ,refPepsi2,refPepsi3};
-
-            //Image Groupe 3
-            //String spritePath = list[2].getAbsolutePath();
-            File fileSprite1 = uriToCache(MainActivity.this,getUri("sprite1"),"sprite1");
-            File fileSprite2 = uriToCache(MainActivity.this,getUri("sprite2"),"sprite2");
-            File fileSprite3 = uriToCache(MainActivity.this,getUri("sprite3"),"sprite3");
-            Mat refSprite1 = imread(fileSprite1.getAbsolutePath());
-            Mat refSprite2 = imread(fileSprite2.getAbsolutePath());
-            Mat refSprite3 = imread(fileSprite3.getAbsolutePath());
-            Mat[] referencesSprite ={refSprite1 ,refSprite2,refSprite3};
-
-            //Création des Descriptors
             Mat descriptorPri = new Mat();
-            Mat[] descriptorsCoca = {null,null,null};
-            Mat[] descriptorsPepsi = {null,null,null};
-            Mat[] descriptorsSprite = {null,null,null};
-
-            //Création des pointeurs
             KeyPointVector	keyPointsPri	=	new	KeyPointVector();
-            KeyPointVector[] keyPointsCoca = {null,null,null};
-            KeyPointVector[] keyPointsPepsi = {null,null,null};
-            KeyPointVector[] keyPointsSprite = {null,null,null};
-
 
             //Paramètre du SIFT.create
             int	nFeatures	=	0;
@@ -292,31 +434,6 @@ public class MainActivity extends AppCompatActivity {
             sift.detect(imagePri,	keyPointsPri);
             sift.compute(imagePri,keyPointsPri,descriptorPri);
 
-            //Detection des images de la catégorie Coca
-            for (int i=0;i<referencesCoca.length;i++){
-                descriptorsCoca[i]=new Mat();
-                keyPointsCoca[i]=new KeyPointVector();
-                sift.detect(referencesCoca[i],	keyPointsCoca[i]);
-                sift.compute(referencesCoca[i],keyPointsCoca[i],descriptorsCoca[i]);
-            }
-
-            //Detection des images de la catégorie Pepsi
-            for (int i=0;i<referencesPepsi.length;i++){
-                descriptorsPepsi[i]=new Mat();
-                keyPointsPepsi[i]=new KeyPointVector();
-                sift.detect(referencesPepsi[i],	keyPointsPepsi[i]);
-                sift.compute(referencesPepsi[i],keyPointsPepsi[i],descriptorsPepsi[i]);
-            }
-
-            //Detection des images de la catégorie Sprite
-            for (int i=0;i<referencesSprite.length;i++){
-                descriptorsSprite[i]=new Mat();
-                keyPointsSprite[i]=new KeyPointVector();
-                sift.detect(referencesSprite[i],keyPointsSprite[i]);
-                sift.compute(referencesSprite[i],keyPointsSprite[i],descriptorsSprite[i]);
-            }
-
-
             opencv_features2d.BFMatcher matcher	=	new opencv_features2d.BFMatcher(NORM_L2,	false);
             DMatchVector	matches	=	new	DMatchVector();
             DMatchVector bestMatches = new DMatchVector();
@@ -325,19 +442,18 @@ public class MainActivity extends AppCompatActivity {
             //Creer les matchs entre l'image Primaire et les autres images.Chaque match à une distance.On calculera la diastance moyenne.
             //On retourne la distance moyenne entre l'image primaire et chaque images de la classe Coca
             float[] DM1 = new float[3];
-            for (int i=0;i<referencesCoca.length;i++){
+            for (int i=0;i<coca.getRef().length;i++){
 
-                matcher.match(descriptorPri,	descriptorsCoca[i],	matches);
+                matcher.match(descriptorPri,coca.getDescriptors()[i],matches);
                 bestMatches = selectBest (matches,25);
-                //drawMatches(imagePri,	keyPointsPri,	referencesCoca[i], keyPointsCoca[i], bestMatches,	imageMatches);
                 DM1[i]=distanceMoyenne(bestMatches);
             }
 
             //On retourne la distance moyenne entre l'image primaire et chaque images de la classe Pepsi
             float[] DM2 = new float[3];
-            for (int i=0;i<referencesPepsi.length;i++){
+            for (int i=0;i<pepsi.getRef().length;i++){
 
-                matcher.match(descriptorPri,	descriptorsPepsi[i],	matches);
+                matcher.match(descriptorPri,	pepsi.getDescriptors()[i],	matches);
                 bestMatches = selectBest (matches,25);
                 //drawMatches(imagePri,	keyPointsPri,	descriptorsPepsi[i], keyPointsPepsi[i], bestMatches,	imageMatches);
                 DM2[i]=distanceMoyenne(bestMatches);
@@ -345,9 +461,9 @@ public class MainActivity extends AppCompatActivity {
 
             //On retourne la distance moyenne entre l'image primaire et chaque images de la classe Sprite
             float[] DM3 = new float[3];
-            for (int i=0;i<referencesSprite.length;i++){
+            for (int i=0;i<sprite.getRef().length;i++){
 
-                matcher.match(descriptorPri,descriptorsSprite[i],	matches);
+                matcher.match(descriptorPri,sprite.getDescriptors()[i],	matches);
                 bestMatches = selectBest (matches,25);
                 //drawMatches(imagePri,	keyPointsPri,	descriptorsSprite[i], keyPointsSprite[i], bestMatches,	imageMatches);
                 DM3[i]=distanceMoyenne(bestMatches);
@@ -376,46 +492,6 @@ public class MainActivity extends AppCompatActivity {
                 //Toast.makeText(MainActivity.this, "classe Sprite", Toast.LENGTH_SHORT).show();
             }
             return res;
-        }
-
-        private Uri getUri(String drawableName)
-        {
-            Uri uri = Uri.parse("android.resource://imt.logoseeker/drawable/" + drawableName);
-            return uri;
-        }
-
-        private File uriToCache(Context context, Uri imgPath, String fileName) {
-            InputStream is;
-            FileOutputStream fos;
-            int size;
-            byte[] buffer;
-            String filePath = context.getCacheDir() + "/" + fileName;
-            File file = new File(filePath);
-
-            try {
-                is = context.getContentResolver().openInputStream(imgPath);
-                if (is == null) {
-                    return null;
-                }
-
-                size = is.available();
-                buffer = new byte[size];
-
-                if (is.read(buffer) <= 0) {
-                    return null;
-                }
-
-                is.close();
-
-                fos = new FileOutputStream(filePath);
-                fos.write(buffer);
-                fos.close();
-
-                return file;
-            } catch (IOException e) {
-                e.printStackTrace();
-                return null;
-            }
         }
 
         private DMatchVector	selectBest(DMatchVector	matches,	int numberToSelect)	{
