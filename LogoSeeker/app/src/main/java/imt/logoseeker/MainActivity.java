@@ -1,5 +1,6 @@
 package imt.logoseeker;
 
+import android.app.Application;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -23,11 +24,20 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,11 +47,15 @@ import java.util.LinkedList;
 
 import org.bytedeco.javacpp.FlyCapture2;
 import org.bytedeco.javacpp.Loader;
+import org.bytedeco.javacpp.Pointer;
 import org.bytedeco.javacpp.opencv_calib3d;
+import org.bytedeco.javacpp.opencv_core;
 import org.bytedeco.javacpp.opencv_features2d;
 import org.bytedeco.javacpp.opencv_core.*;
 import org.bytedeco.javacpp.opencv_shape;
 import org.bytedeco.javacpp.opencv_xfeatures2d;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import static org.bytedeco.javacpp.opencv_core.NORM_L2;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
@@ -52,8 +66,9 @@ public class MainActivity extends AppCompatActivity {
     final int RESULT_LOAD_IMAGE=2;
     String mCurrentPhotoPath;
     public ArrayList<ObjectForImage> baseDonnee;
+    public ArrayList<Brand> brandsFromJson;
 
-    //Action du bouton capture
+    //ON CREATE
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -157,7 +172,7 @@ public class MainActivity extends AppCompatActivity {
 
             Toast.makeText(MainActivity.this, "Photo Captured", Toast.LENGTH_SHORT).show();
 
-           galleryAddPic();
+            galleryAddPic();
         }
 
         //Activity Selection image galery
@@ -265,11 +280,11 @@ public class MainActivity extends AppCompatActivity {
 
         //Detection des images de la catégorie Coca
         for (int i=0;i<referencesCoca.length;i++){
-        descriptorsCoca[i]=new Mat();
-        keyPointsCoca[i]=new KeyPointVector();
-        sift.detect(referencesCoca[i],	keyPointsCoca[i]);
-        sift.compute(referencesCoca[i],keyPointsCoca[i],descriptorsCoca[i]);
-    }
+            descriptorsCoca[i]=new Mat();
+            keyPointsCoca[i]=new KeyPointVector();
+            sift.detect(referencesCoca[i],	keyPointsCoca[i]);
+            sift.compute(referencesCoca[i],keyPointsCoca[i],descriptorsCoca[i]);
+        }
 
         //Detection des images de la catégorie Pepsi
         for (int i=0;i<referencesPepsi.length;i++){
@@ -337,15 +352,15 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-/*
-----------------------------------------------------------------------------------------------------
-----------------------------------------------------------------------------------------------------
- */
+    /*
+    ----------------------------------------------------------------------------------------------------
+    ----------------------------------------------------------------------------------------------------
+     */
     public class ObjectForImage{
-    String name;
-    Mat[] ref;
-    Mat[] descriptors;
-    KeyPointVector[] keyPoints;
+        String name;
+        Mat[] ref;
+        Mat[] descriptors;
+        KeyPointVector[] keyPoints;
 
 
         ObjectForImage(String startName,Mat[] startRef,Mat[] startDescriptors,KeyPointVector[] startKeyPoints){
@@ -374,9 +389,115 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    public class VolleyInterface
+    {
+        private Context context;
+        private String url;
+        public String vocabularyPath;
+
+        public VolleyInterface(Context context, String url){
+            this.context = context;
+            this.url = url;
+            vocabularyPath = "Data/vocabulary.yml";
+
+            getJSONIndex();
+            //getVocabulary();
+        }
+
+        protected void getJSONIndex()
+        {
+            RequestQueue queue = Volley.newRequestQueue(context);
+            JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url + "index.json", null, new Response.Listener<JSONObject>() {
+                @Override
+                // ON RESPONSE : we create the Brand objects stoking JSON infp
+                public void onResponse(JSONObject response) {
+                    if (response != null) {
+                        brandsFromJson = new ArrayList<Brand>();
+                        try {
+                            JSONArray jsonArray = response.getJSONArray("brands");
+                            if (jsonArray != null) {
+                                for (int i = 0; i < jsonArray.length(); i++) {
+                                    JSONObject obj = jsonArray.getJSONObject(i);
+
+                                    JSONArray images = obj.getJSONArray("images");
+                                    String[] imgNames = new String[images.length()];
+                                    for (int j = 0; j < images.length();j++) {
+                                        imgNames[j] = images.get(j).toString();
+                                    }
+
+                                    Brand br = new Brand(obj.getString("brandname"), obj.getString("url"), obj.getString("classifier"),imgNames);
+                                    brandsFromJson.add(br);
+                                }
+                            }
+                        }
+                        catch(Exception ex)
+                        {
+
+                        }
+                    }
+                }
+            }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(VolleyError error) {
+                    Log.e("LOG", error.toString());
+                }
+            });
+            queue.add(jsonObjectRequest);
+        }
+
+        protected void getVocabulary()
+        {
+            RequestQueue queue = Volley.newRequestQueue(context);
+            StringRequest stringRequest = new StringRequest(Request.Method.GET, url + "vocabulary.yml",
+                    new Response.Listener<String>(){
+                        @Override
+                        public void onResponse(String response){
+                            if (response != null)
+                            {
+                                try {
+                                    PrintWriter out = new PrintWriter(vocabularyPath);
+                                    out.print(response);
+                                    out.close();
+                                } catch (FileNotFoundException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    },
+                    new Response.ErrorListener(){
+                        @Override
+                        public void onErrorResponse(VolleyError error){
+                            Log.e("LOG", error.toString());
+                        }
+                    });
+            queue.add(stringRequest);
+        }
+
+    }
+
+    private String startRecognitionFromServer(String photoPath)
+    {
+        String url = "http://www-rech.telecom-lille.fr/nonfreesift/";
+        VolleyInterface vli = new VolleyInterface(this,url);
+        Log.e("test", brandsFromJson.size() + "");
+
+        final Mat vocabulary;
+
+        System.out.println("read vocabulary from file... ");
+        Loader.load(opencv_core.class);
+        opencv_core.CvFileStorage storage = opencv_core.cvOpenFileStorage(vli.vocabularyPath, null, opencv_core.CV_STORAGE_READ);
+        Pointer p = opencv_core.cvReadByName(storage, null, "vocabulary", opencv_core.cvAttrList());
+        opencv_core.CvMat cvMat = new opencv_core.CvMat(p);
+        vocabulary = new opencv_core.Mat(cvMat);
+        System.out.println("vocabulary loaded " + vocabulary.rows() + " x " + vocabulary.cols());
+        opencv_core.cvReleaseFileStorage(storage);
+
+        return null;
+    }
+
     private class AnalysisTask extends AsyncTask<String, Void, String> {
         protected String doInBackground(String[] paths) {
-            return startRecognition(paths[0]);
+            return startRecognitionFromServer(paths[0]);
         }
 
         protected void onPostExecute(String result) {
@@ -395,7 +516,7 @@ public class MainActivity extends AppCompatActivity {
             //Toast.makeText(MainActivity.this,result,Toast.LENGTH_SHORT).show();
         }
 
-
+        /******************************************************************************/
         // Reconnaissance javaCV
         private String startRecognition(String photoPath)
         {
