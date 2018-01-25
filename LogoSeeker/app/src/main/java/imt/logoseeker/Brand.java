@@ -39,7 +39,7 @@ public class Brand {
         this.url = url;
     }
 
-    public String getClassifier() {
+    public String getClassifierName() {
         return classifier;
     }
 

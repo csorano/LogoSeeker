@@ -12,6 +12,8 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
@@ -29,21 +31,27 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.RequestFuture;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.LinkedList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 
 import org.bytedeco.javacpp.FlyCapture2;
 import org.bytedeco.javacpp.Loader;
@@ -65,8 +73,10 @@ public class MainActivity extends AppCompatActivity {
     final int REQUEST_TAKE_PHOTO = 1;
     final int RESULT_LOAD_IMAGE=2;
     String mCurrentPhotoPath;
+    public VolleyInterface volley;
     public ArrayList<ObjectForImage> baseDonnee;
     public ArrayList<Brand> brandsFromJson;
+    public int nbBrands;
 
     //ON CREATE
     @Override
@@ -74,9 +84,36 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        baseDonnee = imreadImage();
+        //baseDonnee = imreadImage();
 
-        Button buttonCap = (Button)findViewById(R.id.b_capture);
+        ProgressBar progressBar2 = (ProgressBar) findViewById(R.id.progressBar2);
+        progressBar2.setVisibility(View.VISIBLE);
+        progressBar2.postInvalidate();
+
+        String url = "http://www-rech.telecom-lille.fr/nonfreesift/";
+        volley = new VolleyInterface(this, url);
+
+        /*boolean loadingFinished = false;
+        while (!loadingFinished) {
+            if (brandsFromJson != null) {
+                if (brandsFromJson.size() == nbBrands) {
+                    boolean missingClassifier = false;
+                    for (Brand br : brandsFromJson) {
+                        if (getFileStreamPath(br.getClassifierName()) == null) {
+                            missingClassifier = true;
+                            break;
+                        }
+                    }
+                    if (missingClassifier == false) {
+                        if (getFileStreamPath("vocabulary.yml") != null) {
+                            loadingFinished = true;
+                        }
+                    }
+                }
+            }
+        }*/
+
+        Button buttonCap = (Button) findViewById(R.id.b_capture);
         buttonCap.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 TextView textResult = (TextView) findViewById(R.id.t_Result);
@@ -85,7 +122,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button buttonLib = (Button)findViewById(R.id.b_Library);
+        Button buttonLib = (Button) findViewById(R.id.b_Library);
         buttonLib.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 TextView textResult = (TextView) findViewById(R.id.t_Result);
@@ -94,7 +131,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        Button buttonAnalysis = (Button)findViewById(R.id.b_analysis);
+        Button buttonAnalysis = (Button) findViewById(R.id.b_analysis);
         buttonAnalysis.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 ProgressBar pb = (ProgressBar) findViewById(R.id.progressBar);
@@ -393,30 +430,89 @@ public class MainActivity extends AppCompatActivity {
     {
         private Context context;
         private String url;
-        public String vocabularyPath;
+        private String filePath;
+        private RequestQueue requestQueue;
+        private int countRequest;
 
         public VolleyInterface(Context context, String url){
             this.context = context;
             this.url = url;
-            vocabularyPath = "Data/vocabulary.yml";
+            filePath = "Data/";
+
+            ProgressBar progressBar2 = (ProgressBar) findViewById(R.id.progressBar2);
+            countRequest = 0;
+            requestQueue = Volley.newRequestQueue(this.context);
+            requestQueue.addRequestFinishedListener(new RequestQueue.RequestFinishedListener<Object>() {
+                @Override
+                public void onRequestFinished(Request<Object> request) {
+                    --countRequest;
+                    if(countRequest <= 0)
+                    {
+                        boolean loadingFinished = false;
+                        if (brandsFromJson != null) {
+                            if (brandsFromJson.size() == nbBrands) {
+                                boolean missingClassifier = false;
+                                for (Brand br : brandsFromJson) {
+                                    if (getFileStreamPath(br.getClassifierName()) == null) {
+                                        missingClassifier = true;
+                                        break;
+                                    }
+                                }
+                                if (missingClassifier == false) {
+                                    if (getFileStreamPath("vocabulary.yml") != null) {
+                                        loadingFinished = true;
+                                    }
+                                }
+                            }
+                        }
+
+                        if(loadingFinished) {
+                            progressBar2.setVisibility(View.GONE);
+                            progressBar2.postInvalidate();
+
+                            Button buttonCap = (Button) findViewById(R.id.b_capture);
+                            buttonCap.setVisibility(View.VISIBLE);
+                            Button buttonLib = (Button) findViewById(R.id.b_Library);
+                            buttonLib.setVisibility(View.VISIBLE);
+                            Button buttonAnalisys = (Button) findViewById(R.id.b_analysis);
+                            buttonAnalisys.setVisibility(View.VISIBLE);
+
+                            ImageView iv = (ImageView) findViewById(R.id.v_picture);
+                            iv.setVisibility(View.VISIBLE);
+                        }
+                        else
+                        {
+                            volley = null;
+                            volley = new VolleyInterface(context,url);
+                        }
+                    }
+                    else
+                    {
+                     // PROGRESS BAR
+                        progressBar2.setProgress(nbBrands + 2 - countRequest);
+                    }
+                }
+            });
 
             getJSONIndex();
-            //getVocabulary();
+            getVocabulary();
         }
 
         protected void getJSONIndex()
         {
-            RequestQueue queue = Volley.newRequestQueue(context);
-            JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, url + "index.json", null, new Response.Listener<JSONObject>() {
+            JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET, this.url + "index.json", null, new Response.Listener<JSONObject>() {
                 @Override
-                // ON RESPONSE : we create the Brand objects stoking JSON infp
+                // ON RESPONSE : we create the Brand objects stoking JSON info
                 public void onResponse(JSONObject response) {
                     if (response != null) {
                         brandsFromJson = new ArrayList<Brand>();
                         try {
                             JSONArray jsonArray = response.getJSONArray("brands");
+                            ProgressBar progressBar2 = (ProgressBar) findViewById(R.id.progressBar2);
+                            progressBar2.setMax(jsonArray.length() + 2);
                             if (jsonArray != null) {
-                                for (int i = 0; i < jsonArray.length(); i++) {
+                                nbBrands = jsonArray.length();
+                                for (int i = 0; i < nbBrands; i++) {
                                     JSONObject obj = jsonArray.getJSONObject(i);
 
                                     JSONArray images = obj.getJSONArray("images");
@@ -429,6 +525,11 @@ public class MainActivity extends AppCompatActivity {
                                     brandsFromJson.add(br);
                                 }
                             }
+                            // getting classifiers
+                            for(Brand br: brandsFromJson)
+                            {
+                                getClassifier(br);
+                            }
                         }
                         catch(Exception ex)
                         {
@@ -439,15 +540,16 @@ public class MainActivity extends AppCompatActivity {
             }, new Response.ErrorListener() {
                 @Override
                 public void onErrorResponse(VolleyError error) {
+
                     Log.e("LOG", error.toString());
                 }
             });
-            queue.add(jsonObjectRequest);
+            requestQueue.add(jsonObjectRequest);
+            countRequest++;
         }
 
         protected void getVocabulary()
         {
-            RequestQueue queue = Volley.newRequestQueue(context);
             StringRequest stringRequest = new StringRequest(Request.Method.GET, url + "vocabulary.yml",
                     new Response.Listener<String>(){
                         @Override
@@ -455,10 +557,8 @@ public class MainActivity extends AppCompatActivity {
                             if (response != null)
                             {
                                 try {
-                                    PrintWriter out = new PrintWriter(vocabularyPath);
-                                    out.print(response);
-                                    out.close();
-                                } catch (FileNotFoundException e) {
+                                    writeToFile(response,"vocabulary.yml",context);
+                                } catch (Exception e) {
                                     e.printStackTrace();
                                 }
                             }
@@ -470,16 +570,53 @@ public class MainActivity extends AppCompatActivity {
                             Log.e("LOG", error.toString());
                         }
                     });
-            queue.add(stringRequest);
+            requestQueue.add(stringRequest);
+            countRequest++;
         }
 
+        protected void getClassifier(Brand br)
+        {
+            StringRequest stringRequest = new StringRequest(Request.Method.GET, url + "classifiers/" + br.getClassifierName(),
+                    new Response.Listener<String>(){
+
+                        @Override
+                        public void onResponse(String response){
+                            if (response != null)
+                            {
+                                try {
+                                    writeToFile(response,br.getClassifierName(),context);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+                    },
+                    new Response.ErrorListener(){
+                        @Override
+                        public void onErrorResponse(VolleyError error){
+                            Log.e("LOG", error.toString());
+                        }
+                    });
+            requestQueue.add(stringRequest);
+            countRequest++;
+        }
+    }
+
+    private void writeToFile(String data,String name,Context context) {
+        try {
+            OutputStreamWriter outputStreamWriter = new OutputStreamWriter(context.openFileOutput(name, Context.MODE_PRIVATE));
+            outputStreamWriter.write(data);
+            outputStreamWriter.close();
+        }
+        catch (IOException e) {
+            Log.e("Exception", "File write failed: " + e.toString());
+        }
     }
 
     private String startRecognitionFromServer(String photoPath)
     {
-        String url = "http://www-rech.telecom-lille.fr/nonfreesift/";
-        VolleyInterface vli = new VolleyInterface(this,url);
-        Log.e("test", brandsFromJson.size() + "");
+
+        /*Log.e("test", brandsFromJson.size() + "");
 
         final Mat vocabulary;
 
@@ -490,7 +627,7 @@ public class MainActivity extends AppCompatActivity {
         opencv_core.CvMat cvMat = new opencv_core.CvMat(p);
         vocabulary = new opencv_core.Mat(cvMat);
         System.out.println("vocabulary loaded " + vocabulary.rows() + " x " + vocabulary.cols());
-        opencv_core.cvReleaseFileStorage(storage);
+        opencv_core.cvReleaseFileStorage(storage);*/
 
         return null;
     }

@@ -13,50 +13,57 @@
         android:id="@+id/b_Library"
         android:layout_width="156dp"
         android:layout_height="59dp"
-        android:text="Mobile Library"
-        tools:layout_constraintTop_creator="1"
-        tools:layout_constraintRight_creator="1"
         android:layout_marginEnd="16dp"
-        app:layout_constraintRight_toRightOf="parent"
         android:layout_marginTop="16dp"
-        app:layout_constraintTop_toTopOf="parent" />
+        android:text="Mobile Library"
+        android:visibility="gone"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:layout_constraintRight_creator="1"
+        tools:layout_constraintTop_creator="1" />
 
     <Button
         android:id="@+id/b_capture"
         android:layout_width="156dp"
         android:layout_height="0dp"
-        android:text="Capture"
-        tools:layout_constraintTop_creator="1"
-        tools:layout_constraintBottom_creator="1"
+        android:layout_marginLeft="16dp"
         android:layout_marginStart="16dp"
+        android:text="Capture"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@+id/b_Library"
-        tools:layout_constraintLeft_creator="1"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintTop_toTopOf="@+id/b_Library"
-        android:layout_marginLeft="16dp"
-        app:layout_constraintVertical_bias="1.0" />
+        app:layout_constraintVertical_bias="1.0"
+        tools:layout_constraintBottom_creator="1"
+        tools:layout_constraintLeft_creator="1"
+        tools:layout_constraintTop_creator="1" />
 
     <Button
         android:id="@+id/b_analysis"
         android:layout_width="175dp"
         android:layout_height="48dp"
-        android:text="Analysis"
-        tools:layout_constraintRight_creator="1"
-        tools:layout_constraintBottom_creator="1"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintRight_toRightOf="parent"
-        tools:layout_constraintLeft_creator="1"
         android:layout_marginBottom="14dp"
-        app:layout_constraintLeft_toLeftOf="parent" />
+        android:text="Analysis"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        tools:layout_constraintBottom_creator="1"
+        tools:layout_constraintLeft_creator="1"
+        tools:layout_constraintRight_creator="1" />
 
     <ImageView
         android:id="@+id/v_picture"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:layout_marginBottom="79dp"
         android:layout_marginEnd="51dp"
         android:layout_marginStart="51dp"
+        android:layout_marginTop="79dp"
         android:adjustViewBounds="false"
+        android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintHorizontal_bias="0.504"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
@@ -64,10 +71,7 @@
         tools:layout_constraintBottom_creator="1"
         tools:layout_constraintLeft_creator="1"
         tools:layout_constraintRight_creator="1"
-        tools:layout_constraintTop_creator="1"
-        app:layout_constraintHorizontal_bias="0.504"
-        android:layout_marginTop="79dp"
-        android:layout_marginBottom="79dp" />
+        tools:layout_constraintTop_creator="1" />
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -102,5 +106,26 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         tools:layout_editor_absoluteY="414dp" />
+
+    <ProgressBar
+        android:id="@+id/progressBar2"
+        style="@android:style/Widget.ProgressBar.Horizontal"
+        android:layout_width="305dp"
+        android:layout_height="111dp"
+        android:layout_marginBottom="8dp"
+        android:layout_marginLeft="8dp"
+        android:layout_marginRight="8dp"
+        android:layout_marginTop="8dp"
+        android:minHeight="10dp"
+        android:maxHeight="10dp"
+        android:startColor="#80ffd300"
+        android:endColor="#80ffd300"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:layout_editor_absoluteY="239dp"
+        app:layout_constraintHorizontal_bias="0.508" />
 
 </android.support.constraint.ConstraintLayout>
