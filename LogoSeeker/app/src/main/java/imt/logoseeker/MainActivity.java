@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.icu.util.Output;
 import android.media.Image;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -39,8 +40,10 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.Reader;
@@ -53,13 +56,15 @@ import java.util.LinkedList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 
-import org.bytedeco.javacpp.FlyCapture2;
 import org.bytedeco.javacpp.Loader;
 import org.bytedeco.javacpp.Pointer;
+import org.bytedeco.javacpp.indexer.FloatRawIndexer;
 import org.bytedeco.javacpp.opencv_calib3d;
 import org.bytedeco.javacpp.opencv_core;
 import org.bytedeco.javacpp.opencv_features2d;
 import org.bytedeco.javacpp.opencv_core.*;
+import org.bytedeco.javacpp.opencv_imgproc;
+import org.bytedeco.javacpp.opencv_ml;
 import org.bytedeco.javacpp.opencv_shape;
 import org.bytedeco.javacpp.opencv_xfeatures2d;
 import org.json.JSONArray;
@@ -67,6 +72,7 @@ import org.json.JSONObject;
 
 import static org.bytedeco.javacpp.opencv_core.NORM_L2;
 import static org.bytedeco.javacpp.opencv_imgcodecs.imread;
+import static org.bytedeco.javacpp.opencv_ml.SVM;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -90,28 +96,8 @@ public class MainActivity extends AppCompatActivity {
         progressBar2.setVisibility(View.VISIBLE);
         progressBar2.postInvalidate();
 
-        String url = "http://www-rech.telecom-lille.fr/nonfreesift/";
+        String url = "http://www-rech.telecom-lille.fr/freeorb/";
         volley = new VolleyInterface(this, url);
-
-        /*boolean loadingFinished = false;
-        while (!loadingFinished) {
-            if (brandsFromJson != null) {
-                if (brandsFromJson.size() == nbBrands) {
-                    boolean missingClassifier = false;
-                    for (Brand br : brandsFromJson) {
-                        if (getFileStreamPath(br.getClassifierName()) == null) {
-                            missingClassifier = true;
-                            break;
-                        }
-                    }
-                    if (missingClassifier == false) {
-                        if (getFileStreamPath("vocabulary.yml") != null) {
-                            loadingFinished = true;
-                        }
-                    }
-                }
-            }
-        }*/
 
         Button buttonCap = (Button) findViewById(R.id.b_capture);
         buttonCap.setOnClickListener(new View.OnClickListener() {
@@ -145,6 +131,7 @@ public class MainActivity extends AppCompatActivity {
                 btnCap.setEnabled(false);
                 btnLib.setEnabled(false);
                 new AnalysisTask().execute(mCurrentPhotoPath);
+
             }
         });
     }
@@ -488,7 +475,7 @@ public class MainActivity extends AppCompatActivity {
                     }
                     else
                     {
-                     // PROGRESS BAR
+                        // PROGRESS BAR
                         progressBar2.setProgress(nbBrands + 2 - countRequest);
                     }
                 }
@@ -615,21 +602,107 @@ public class MainActivity extends AppCompatActivity {
 
     private String startRecognitionFromServer(String photoPath)
     {
-
-        /*Log.e("test", brandsFromJson.size() + "");
-
+        //prepare BOW descriptor extractor from the vocabulary already computed
+        final String rootPath = this.getFilesDir().getAbsolutePath();
+        final String pathToVocabulary = rootPath + "/vocabulary.yml" ; // to be define
         final Mat vocabulary;
 
         System.out.println("read vocabulary from file... ");
         Loader.load(opencv_core.class);
-        opencv_core.CvFileStorage storage = opencv_core.cvOpenFileStorage(vli.vocabularyPath, null, opencv_core.CV_STORAGE_READ);
+        opencv_core.CvFileStorage storage = opencv_core.cvOpenFileStorage(pathToVocabulary, null, opencv_core.CV_STORAGE_READ);
         Pointer p = opencv_core.cvReadByName(storage, null, "vocabulary", opencv_core.cvAttrList());
         opencv_core.CvMat cvMat = new opencv_core.CvMat(p);
         vocabulary = new opencv_core.Mat(cvMat);
         System.out.println("vocabulary loaded " + vocabulary.rows() + " x " + vocabulary.cols());
-        opencv_core.cvReleaseFileStorage(storage);*/
+        opencv_core.cvReleaseFileStorage(storage);
 
-        return null;
+
+        //Paramètre du SIFT.create
+        int	nFeatures	=	0;
+        int	nOctaveLayers	=	3;
+        double	contrastThreshold	=	0.03;
+        int	edgeThreshold	=	10;
+        double	sigma	=	1.6;
+        Loader.load(opencv_calib3d.class);
+        Loader.load(opencv_shape.class)	;
+        opencv_xfeatures2d.SIFT detector;
+        detector= opencv_xfeatures2d.SIFT.create(nFeatures,	nOctaveLayers,	contrastThreshold,	edgeThreshold,	sigma);
+
+
+        //create a matcher with FlannBased Euclidien distance (possible also with BruteForce-Hamming)
+        final opencv_features2d.FlannBasedMatcher matcher;
+        matcher = new opencv_features2d.FlannBasedMatcher();
+
+        //create BoF (or BoW) descriptor extractor
+        final opencv_features2d.BOWImgDescriptorExtractor bowide;
+        bowide = new opencv_features2d.BOWImgDescriptorExtractor(detector, matcher);
+
+        //Set the dictionary with the vocabulary we created in the first step
+        bowide.setVocabulary(vocabulary);
+        System.out.println("Vocab is set");
+
+
+        int classNumber = nbBrands;
+        String[] class_names;
+        class_names = new String[classNumber];
+
+        for(int i =0; i<nbBrands; ++i)
+        {
+            class_names[i] = brandsFromJson.get(i).getClassifierName();
+        }
+
+        final SVM[] classifiers;
+        classifiers = new SVM[classNumber];
+        for (int i = 0 ; i < classNumber ; i++) {
+            //System.out.println("Ok. Creating class name from " + className);
+            //open the file to write the resultant descriptor
+            classifiers[i] = SVM.create();
+            String clPath = rootPath + "/" + class_names[i];
+            classifiers[i] = SVM.load(clPath);
+        }
+
+        Mat response_hist = new Mat();
+        KeyPointVector keypoints = new KeyPointVector();
+        //Mat inputDescriptors = new Mat();
+
+        Mat imageTest = imread(photoPath);
+        opencv_imgproc.resize(imageTest, imageTest, new opencv_core.Size(500, 700));
+        detector.detect(imageTest,keypoints);
+
+        bowide.compute(imageTest, keypoints, response_hist, new opencv_core.IntVectorVector(), new Mat());
+
+        // Finding best match
+        float minf = Float.MAX_VALUE;
+        String bestMatch = null;
+
+        long timePrediction = System.currentTimeMillis();
+        // loop for all classes
+        try {
+            for (int i = 0; i < classNumber; i++) {
+                Mat resMat = new Mat();
+                // classifier prediction based on reconstructed histogram
+                response_hist.convertTo(response_hist,opencv_core.CV_32F);
+                float res = classifiers[i].predict(response_hist, resMat, 1);
+                //System.out.println(class_names[i] + " is " + res);
+                FloatRawIndexer indexer = resMat.createIndexer();
+                if (resMat.cols() > 0 && resMat.rows() > 0) {
+                    res = indexer.get(0, 0);
+                }
+                if (res < minf) {
+                    minf = res;
+                    bestMatch = class_names[i];
+                }
+            }
+            return bestMatch;
+            //timePrediction = System.currentTimeMillis() - timePrediction;
+            //Toast.makeText(MainActivity.this,"Image predicted as " + bestMatch + " in " + timePrediction + " ms", Toast.LENGTH_LONG).show();
+        }
+        catch(Exception e)
+        {
+            String msg = e.getMessage();
+            return "Error";
+            //Toast.makeText(this,msg, Toast.LENGTH_LONG);
+        }
     }
 
     private class AnalysisTask extends AsyncTask<String, Void, String> {
@@ -649,7 +722,7 @@ public class MainActivity extends AppCompatActivity {
             btnLyb.setEnabled(true);
             btnAna.setText("ANALYSIS");
             textResult.setText(result);
-
+            
             //Toast.makeText(MainActivity.this,result,Toast.LENGTH_SHORT).show();
         }
 
