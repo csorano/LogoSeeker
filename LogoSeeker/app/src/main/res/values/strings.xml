@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">LogoSeeker</string>
+    <string name="disabled_message">PLEASE WAIT...</string>
+    <string name="enabled_message">ANALYSIS</string>
+    <string name="error_message">Erreur durant l\'analyse</string>
 </resources>
